@@ -1,11 +1,12 @@
 package guru.springframework.orderservice.domain;
 
-import org.hibernate.annotations.Fetch;
-import org.hibernate.annotations.FetchMode;
-
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import jakarta.persistence.*;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 
 /**
  * Created by jt on 12/5/21.
@@ -67,6 +68,10 @@ public class OrderHeader extends BaseEntity {
     @Fetch(FetchMode.SELECT)
     private OrderApproval orderApproval;
 
+    //@OneToMany(mappedBy = "orderHeader", cascade = {CascadeType.PERSIST, CascadeType.REMOVE}, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "orderHeader", cascade = {CascadeType.PERSIST, CascadeType.REMOVE})
+    private List<Foo> foos = new ArrayList<>();
+
     public OrderApproval getOrderApproval() {
         return orderApproval;
     }
@@ -83,6 +88,15 @@ public class OrderHeader extends BaseEntity {
 
         orderLines.add(orderLine);
         orderLine.setOrderHeader(this);
+    }
+
+    public void addFoo(Foo foo) {
+        if (foos == null) {
+            foos = new ArrayList<>();
+        }
+
+        foos.add(foo);
+        foo.setOrderHeader(this);
     }
 
     public Customer getCustomer() {
@@ -123,6 +137,14 @@ public class OrderHeader extends BaseEntity {
 
     public void setOrderLines(Set<OrderLine> orderLines) {
         this.orderLines = orderLines;
+    }
+
+    public List<Foo> getFoos() {
+        return foos;
+    }
+
+    public void setFoos(List<Foo> foos) {
+        this.foos = foos;
     }
 
     @Override

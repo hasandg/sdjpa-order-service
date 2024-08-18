@@ -3,6 +3,7 @@ package guru.springframework.orderservice;
 import guru.springframework.orderservice.domain.*;
 import guru.springframework.orderservice.repositories.CustomerRepository;
 import guru.springframework.orderservice.repositories.OrderHeaderRepository;
+import guru.springframework.orderservice.repositories.ParentRepository;
 import guru.springframework.orderservice.repositories.ProductRepository;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -16,7 +17,6 @@ import java.util.ArrayList;
 import java.util.IntSummaryStatistics;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /**
@@ -61,6 +61,9 @@ public class DataLoadTest {
         System.out.println("I updated the order");
     }
 
+    @Autowired
+    ParentRepository parentRepository;
+
     @Test
     void testN_PlusOneProblem() {
 
@@ -74,14 +77,66 @@ public class DataLoadTest {
     }
 
     @Test
-    void testLazyVsEager() {
-        OrderHeader orderHeader = orderHeaderRepository.getById(52l);
+    void testOrderLinesLazyVsEager() {
+        OrderHeader orderHeader = orderHeaderRepository.getById(400l);
 
         System.out.println("Order Id is: " + orderHeader.getId());
 
+        System.out.println("Some other stuff");
         System.out.println("Customer Name is: " + orderHeader.getCustomer().getCustomerName());
-
+        System.out.println("Order Lines: " + orderHeader.getOrderLines().size());
+        System.out.println("Some other stuff 2");
     }
+
+
+    @Test
+    void testFooLazyVsEager() {
+        OrderHeader orderHeader = orderHeaderRepository.getById(4l);
+
+        System.out.println("Order Id is: " + orderHeader.getId());
+
+        System.out.println("Some other stuff");
+        System.out.println("Foo size: " + orderHeader.getFoos().size());
+        System.out.println("Some other stuff 2");
+    }
+
+    @Test
+    void testFooLazyVsEagerWithAllData() {
+        List<OrderHeader> allOrderHeaders = orderHeaderRepository.findAll();
+
+        for (OrderHeader orderHeader : allOrderHeaders) {
+
+            for (Foo foo : orderHeader.getFoos()) {
+                int abc = foo.getAmount();
+            }
+            //System.out.println("Order Id is: " + orderHeader.getId());
+            //System.out.println("Foo size: " + orderHeader.getFoos().size());
+        }
+    }
+
+    @Test
+    void testParentN_PlusOneProblem() {
+
+        List<Parent> parents = parentRepository.findAll();
+        IntSummaryStatistics totalChildAmount = parents.stream()
+                .flatMap(parent -> parent.getChildren().stream())
+                .collect(Collectors.summarizingInt(Child::getAmount));
+
+        System.out.println("Patents size: " + parents.size());
+        System.out.println("total child amount: " + totalChildAmount.getSum());
+    }
+
+    @Test
+    void testParentLazyVsEagerWithAllData() {
+        List<Parent> allParents = parentRepository.findAll();
+
+        for (Parent parent : allParents) {
+//            for (Child child : parent.getChildren()) {
+//               // int abc = child.getAmount();
+//            }
+        }
+    }
+
 
     @Disabled
     @Rollback(value = false)
@@ -90,9 +145,9 @@ public class DataLoadTest {
         List<Product> products = loadProducts();
         Customer customer = loadCustomers();
 
-        int ordersToCreate = 10000;
+        int ordersToCreate = 99;
 
-        for (int i = 0; i < ordersToCreate; i++){
+        for (int i = 0; i < ordersToCreate; i++) {
             System.out.println("Creating order #: " + i);
             saveOrder(customer, products);
         }
@@ -100,7 +155,28 @@ public class DataLoadTest {
         orderHeaderRepository.flush();
     }
 
-    private OrderHeader saveOrder(Customer customer, List<Product> products){
+    @Disabled
+    @Rollback(value = false)
+    @Test
+    void testParentDataLoader() {
+        Random random = new Random();
+
+        int parentsToCreate = 30000;
+
+        for (int i = 0; i < parentsToCreate; i++) {
+            System.out.println("Creating parent #: " + i);
+            Parent parent = new Parent();
+
+            for (int j = 0; j < 3; j++) {
+                Child child = new Child();
+                child.setAmount(random.nextInt(100));
+                parent.addChild(child);
+            }
+            parentRepository.save(parent);
+        }
+    }
+
+    private OrderHeader saveOrder(Customer customer, List<Product> products) {
         Random random = new Random();
 
         OrderHeader orderHeader = new OrderHeader();
@@ -110,12 +186,58 @@ public class DataLoadTest {
             OrderLine orderLine = new OrderLine();
             orderLine.setProduct(product);
             orderLine.setQuantityOrdered(random.nextInt(20));
-            //orderHeader.getOrderLines().add(orderLine);
+            //orderHeader.getOrderLines().add(orderLine);  // this is the problem
             orderHeader.addOrderLine(orderLine);
         });
 
+        for (int i = 0; i < 3; i++) {
+            Foo foo = new Foo();
+            foo.setAmount(random.nextInt(100));
+            //orderHeader.getFoos().add(foo);  // this is the problem
+            orderHeader.addFoo(foo);
+        }
+
         return orderHeaderRepository.save(orderHeader);
     }
+
+    //This version has no performance effect on the query so similar to the previous version!
+    @Disabled
+    @Rollback(value = false)
+    @Test
+    void testDataLoaderBulkVersion() {
+        List<Product> products = loadProducts();
+        Customer customer = loadCustomers();
+
+        int ordersToCreate = 10;
+
+        List<OrderHeader> orderHeaders = generateBulkOrders(customer, products, ordersToCreate);
+
+        orderHeaderRepository.saveAll(orderHeaders);
+        orderHeaderRepository.flush();
+    }
+
+    private List<OrderHeader> generateBulkOrders(Customer customer, List<Product> products, int ordersToCreate) {
+        List<OrderHeader> orderHeaders = new ArrayList<>();
+        Random random = new Random();
+
+        for (int i = 0; i < ordersToCreate; i++) {
+            OrderHeader orderHeader = new OrderHeader();
+            orderHeader.setCustomer(customer);
+
+
+            for (int j = 0; j < 500; j++) {
+                Foo foo = new Foo();
+                foo.setAmount(random.nextInt(100));
+                //orderHeader.getFoos().add(foo);  // this is the problem
+                orderHeader.addFoo(foo);
+            }
+
+            orderHeaders.add(orderHeader);
+        }
+
+        return orderHeaders;
+    }
+
 
     private Customer loadCustomers() {
         return getOrSaveCustomer(TEST_CUSTOMER);
@@ -135,7 +257,8 @@ public class DataLoadTest {
                     return customerRepository.save(c1);
                 });
     }
-    private List<Product> loadProducts(){
+
+    private List<Product> loadProducts() {
         List<Product> products = new ArrayList<>();
 
         products.add(getOrSaveProduct(PRODUCT_D1));
@@ -144,6 +267,7 @@ public class DataLoadTest {
 
         return products;
     }
+
     private Product getOrSaveProduct(String description) {
         return productRepository.findByDescription(description)
                 .orElseGet(() -> {
