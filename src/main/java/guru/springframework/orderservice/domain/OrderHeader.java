@@ -1,6 +1,8 @@
 package guru.springframework.orderservice.domain;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import jakarta.persistence.*;
 
@@ -44,6 +46,7 @@ import jakarta.persistence.*;
 })
 public class OrderHeader extends BaseEntity {
 
+    //@ManyToOne
     @ManyToOne(fetch = FetchType.LAZY)
     private Customer customer;
 
@@ -56,11 +59,17 @@ public class OrderHeader extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private OrderStatus orderStatus;
 
-    @OneToMany(mappedBy = "orderHeader", cascade = {CascadeType.PERSIST, CascadeType.REMOVE})
-    private Set<OrderLine> orderLines;
+    @OneToMany(mappedBy = "orderHeader", cascade = {CascadeType.PERSIST, CascadeType.REMOVE}, fetch = FetchType.EAGER)
+    //@OneToMany(mappedBy = "orderHeader", cascade = {CascadeType.PERSIST, CascadeType.REMOVE}, fetch = FetchType.LAZY)
+    //@OneToMany(mappedBy = "orderHeader", cascade = {CascadeType.PERSIST, CascadeType.REMOVE})
+    private Set<OrderLine> orderLines = new HashSet<>();
 
     @OneToOne(cascade = {CascadeType.PERSIST, CascadeType.REMOVE}, mappedBy = "orderHeader")
     private OrderApproval orderApproval;
+
+    //@OneToMany(mappedBy = "orderHeader", cascade = {CascadeType.PERSIST, CascadeType.REMOVE}, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "orderHeader", cascade = {CascadeType.PERSIST, CascadeType.REMOVE})
+    private List<Foo> foos = new ArrayList<>();
 
     public OrderApproval getOrderApproval() {
         return orderApproval;
@@ -78,6 +87,15 @@ public class OrderHeader extends BaseEntity {
 
         orderLines.add(orderLine);
         orderLine.setOrderHeader(this);
+    }
+
+    public void addFoo(Foo foo) {
+        if (foos == null) {
+            foos = new ArrayList<>();
+        }
+
+        foos.add(foo);
+        foo.setOrderHeader(this);
     }
 
     public Customer getCustomer() {
@@ -118,6 +136,14 @@ public class OrderHeader extends BaseEntity {
 
     public void setOrderLines(Set<OrderLine> orderLines) {
         this.orderLines = orderLines;
+    }
+
+    public List<Foo> getFoos() {
+        return foos;
+    }
+
+    public void setFoos(List<Foo> foos) {
+        this.foos = foos;
     }
 
     @Override
