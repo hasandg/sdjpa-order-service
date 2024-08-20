@@ -45,7 +45,7 @@ public class DataLoadTest {
      * From MySQL Workbench (or other client, run the following SQL statment, then test below.) Once
      * you commit, the test will complete. If test completes immediately, check autocommit settings in client.
      *
-     *  {@code SELECT * FROM orderservice.order_header where id = 1 for update; }
+     *  {@code SELECT * FROM orderservice.order_header where id = 55 for update; }
      */
     @Test
     void testDBLock() {
